@@ -1,0 +1,9 @@
+# 忽略 Node.js 肥大的套件庫
+node_modules/
+
+# 🔑 絕對禁止上傳的隱私金鑰檔案
+.env
+
+# 忽略作業系統暫存檔
+.DS_Store
+Thumbs.db

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>航線搜尋</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        starlux: {
+                            gold: '#D4AF37',       
+                            goldLight: '#E6CA65',  
+                            darkBg: '#1C1A17',     
+                            panel: '#26231E',      
+                            input: '#12110F',      
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic"></script>
+</head>
+<body class="bg-starlux-darkBg text-gray-200 min-h-screen font-sans">
+
+    <nav class="bg-starlux-panel border-b border-starlux-gold/20 px-6 py-4 flex justify-between items-center shadow-lg">
+        <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-plane-departure text-starlux-gold text-2xl"></i>
+            <span class="text-xl font-bold tracking-widest text-white">STAR <span class="text-starlux-gold">VIBE</span></span>
+        </div>
+        <div class="text-xs tracking-wider text-starlux-gold/70 font-mono">GLOBAL AUTCOMPLETE ENGINE</div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-1 bg-starlux-panel p-6 rounded-2xl shadow-2xl border border-starlux-gold/10 flex flex-col justify-between z-30">
+            <div>
+                <h2 class="text-base font-semibold mb-5 tracking-wider text-white flex items-center gap-2 border-b border-starlux-gold/10 pb-3">
+                    <i class="fa-solid fa-compass text-starlux-gold"></i> Search Flights
+                </h2>
+                
+                <div class="space-y-5 relative">
+                    <div class="relative">
+                        <label class="block text-xs font-medium text-gray-400 mb-1 tracking-wide">DEPARTURE</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-starlux-gold/60"><i class="fa-solid fa-plane-takeoff"></i></span>
+                            <input type="text" id="origin-input" placeholder="輸入城市、英文或代碼 (如 TPE)" autocomplete="off" class="w-full bg-starlux-input border border-starlux-gold/20 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-starlux-gold focus:ring-1 focus:ring-starlux-gold outline-none transition-colors text-sm">
+                            <input type="hidden" id="origin-code" value="TPE">
+                        </div>
+                        <div id="origin-suggestions" class="absolute left-0 right-0 mt-1 bg-starlux-panel border border-starlux-gold/20 rounded-lg shadow-2xl max-h-48 overflow-y-auto hidden z-50"></div>
+                    </div>
+
+                    <div class="relative">
+                        <label class="block text-xs font-medium text-gray-400 mb-1 tracking-wide">DESTINATION</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-starlux-gold/60"><i class="fa-solid fa-plane-arrival"></i></span>
+                            <input type="text" id="destination-input" placeholder="輸入城市、英文或代碼 (如 LAX)" autocomplete="off" class="w-full bg-starlux-input border border-starlux-gold/20 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-starlux-gold focus:ring-1 focus:ring-starlux-gold outline-none transition-colors text-sm">
+                            <input type="hidden" id="destination-code" value="NRT">
+                        </div>
+                        <div id="destination-suggestions" class="absolute left-0 right-0 mt-1 bg-starlux-panel border border-starlux-gold/20 rounded-lg shadow-2xl max-h-48 overflow-y-auto hidden z-50"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1 tracking-wide">departure date</label>
+                            <input type="date" id="depDate" value="2026-07-01" class="w-full bg-starlux-input border border-starlux-gold/20 rounded-lg px-3 py-2 text-white focus:border-starlux-gold outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1 tracking-wide">return date</label>
+                            <input type="date" id="retDate" value="2026-07-08" class="w-full bg-starlux-input border border-starlux-gold/20 rounded-lg px-3 py-2 text-white focus:border-starlux-gold outline-none text-sm">
+                        </div>
+                    </div>
+
+                    <div class="pt-1">
+                        <label class="block text-xs font-medium text-gray-400 mb-2 tracking-wide">PREFERENCE</label>
+                        <div class="grid grid-cols-2 gap-2 bg-starlux-input p-1 rounded-xl border border-starlux-gold/10">
+                            <button id="pref-budget" onclick="setPreference('budget')" class="py-2 px-3 text-xs font-medium rounded-lg transition-all duration-300 bg-starlux-gold text-starlux-darkBg font-bold shadow-lg">
+                                <i class="fa-solid fa-wallet mr-1"></i> For Budget
+                            </button>
+                            <button id="pref-convenience" onclick="setPreference('convenience')" class="py-2 px-3 text-xs font-medium rounded-lg transition-all duration-300 text-gray-400 hover:text-white font-bold">
+                                <i class="fa-solid fa-crown mr-1"></i> Premium Choice
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="searchFlights()" class="w-full mt-6 bg-gradient-to-r from-starlux-gold to-yellow-600 hover:from-starlux-goldLight hover:to-yellow-500 text-starlux-darkBg font-bold py-3.5 px-4 rounded-xl shadow-xl transition-all transform active:scale-[0.98] flex justify-center items-center gap-2 uppercase tracking-widest text-sm固">
+                <i class="fa-solid fa-magnifying-glass-chart"></i> Search Flights
+            </button>
+        </div>
+
+        <div class="lg:col-span-2 bg-starlux-panel p-6 rounded-2xl shadow-2xl border border-starlux-gold/10 flex flex-col z-10">
+            <h2 class="text-base font-semibold mb-5 tracking-wider text-white flex items-center justify-between border-b border-starlux-gold/10 pb-3">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-list-ul text-starlux-gold"></i> Flights</span>
+                <span id="result-count" class="text-xs font-normal text-starlux-gold/70 font-mono">FOUND 0 FLIGHTS</span>
+            </h2>
+
+            <div id="flight-results" class="space-y-4 overflow-y-auto max-h-[380px] pr-2">
+                <div class="text-center py-12 text-gray-500 text-sm tracking-wide">Please enter the departure and destination above to start searching.</div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3 bg-starlux-panel p-4 rounded-2xl shadow-2xl border border-starlux-gold/10 z-0">
+            <div class="flex justify-between items-center mb-3 px-2">
+                <h2 class="text-base font-semibold text-white tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-globe text-starlux-gold"></i> Flight Path
+                </h2>
+                <div id="distance-info" class="text-xs text-starlux-gold font-mono bg-starlux-input px-3 py-1.5 rounded-lg border border-starlux-gold/20 tracking-wide">
+                    DISTANCE: -- km
+                </div>
+            </div>
+            <div id="map" class="w-full h-[450px] rounded-xl overflow-hidden border border-starlux-gold/10"></div>
+        </div>
+    </div>
+
+    <script>
+        // 大幅擴充的全球樞紐機場數據庫 (熱門城市、代碼、經緯度)
+        const airportDatabase = [
+            { code: 'TPE', city: '台北', name: '台灣桃園國際機場', english: 'Taipei Taoyuan', lat: 25.0797, lng: 121.2342 },
+            { code: 'KIX', city: '大阪', name: '關西國際機場', english: 'Osaka Kansai', lat: 34.4320, lng: 135.2304 },
+            { code: 'NRT', city: '東京', name: '成田國際機場', english: 'Tokyo Narita', lat: 35.7720, lng: 140.3929 },
+            { code: 'HND', city: '東京', name: '羽田國際機場', english: 'Tokyo Haneda', lat: 35.5494, lng: 139.7798 },
+            { code: 'ICN', city: '首爾', name: '仁川國際機場', english: 'Seoul Incheon', lat: 37.4602, lng: 126.4407 },
+            { code: 'HKG', city: '香港', name: '香港國際機場', english: 'Hong Kong', lat: 22.3080, lng: 113.9185 },
+            { code: 'SIN', city: '新加坡', name: '樟宜機場', english: 'Singapore Changi', lat: 1.3502, lng: 103.9944 },
+            { code: 'BKK', city: '曼谷', name: '蘇凡納布機場', english: 'Bangkok Suvarnabhumi', lat: 13.6926, lng: 100.7508 },
+            { code: 'LAX', city: '洛杉磯', name: '洛杉磯國際機場', english: 'Los Angeles', lat: 33.9416, lng: -118.4085 },
+            { code: 'SFO', city: '舊金山', name: '舊金山國際機場', english: 'San Francisco', lat: 37.6213, lng: -122.3790 },
+            { code: 'JFK', city: '紐約', name: '甘迺迪國際機場', english: 'New York JFK', lat: 40.6413, lng: -73.7781 },
+            { code: 'CDG', city: '巴黎', name: '戴高樂機場', english: 'Paris Charles de Gaulle', lat: 49.0097, lng: 2.5479 },
+            { code: 'LHR', city: '倫敦', name: '希斯洛機場', english: 'London Heathrow', lat: 51.4700, lng: -0.4543 },
+            { code: 'FRA', city: '法蘭克福', name: '法蘭克福機場', english: 'Frankfurt', lat: 50.0379, lng: 8.5622 },
+            { code: 'DXB', city: '杜拜', name: '杜拜國際機場', english: 'Dubai', lat: 25.2532, lng: 55.3657 },
+            { code: 'AMS', city: '阿姆斯特丹', name: '史基浦機場', english: 'Amsterdam Schiphol', lat: 52.3105, lng: 4.7683 },
+            { code: 'SYD', city: '雪梨', name: '金斯福德·史密斯機場', english: 'Sydney', lat: -33.9461, lng: 151.1772 },
+            { code: 'CTS', city: '札幌', name: '新千歲機場', english: 'Sapporo Chitose', lat: 42.7752, lng: 141.6923 },
+            { code: 'FUK', city: '福岡', name: '福岡機場', english: 'Fukuoka', lat: 33.5859, lng: 130.4507 }
+        ];
+
+        let currentPreference = 'budget';
+        let map, flightLine, originMarker, destMarker;
+        let fetchedFlights = [];
+
+        function initMap() {
+            map = L.map('map', { zoomControl: true, attributionControl: false }).setView([25, 121], 3);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+        }
+
+        // --- 【核心：Autocomplete 搜尋引擎優化】 ---
+// 全域變數，用來隨時記錄使用者「最後點選」的出發地與目的地完整資料（包含世界各地的經緯度）
+let activeOriginAirport = { code: 'TPE', city: '台北', lat: 25.0797, lng: 121.2342 };
+let activeDestinationAirport = { code: 'NRT', city: '東京', lat: 35.7720, lng: 140.3929 };
+
+// 升級版：聯網型全球機場自動完成選單
+// 智慧防抖型 Autocomplete
+// 智慧型：全球混合聯網模糊搜尋（陌生機場、熱門樞紐全解鎖）
+let debounceTimeout;
+function setupAutocomplete(inputId, suggestionsId, codeId, type) {
+    const input = document.getElementById(inputId);
+    const sugBox = document.getElementById(suggestionsId);
+    const codeInput = document.getElementById(codeId);
+
+    if (type === 'orig') input.value = "Taipei (TPE) - Taoyuan International Airport";
+    if (type === 'dest') input.value = "Tokyo (NRT) - Narita International Airport";
+
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimeout);
+        const text = input.value.trim();
+
+        if (text.length < 2) { // 輸入 2 個字以上再發動檢索
+            sugBox.classList.add('hidden');
+            return;
+        }
+
+        // ⏱️ 防抖處理：打字停頓 350 毫秒才連線，打字超流暢
+        debounceTimeout = setTimeout(async () => {
+            let matches = [];
+            
+            try {
+                // 1. 優先衝向後端的免 Key 全球地理大數據庫
+                const response = await fetch(`http://localhost:3000/api/search-airports?query=${encodeURIComponent(text)}`);
+                if (response.ok) {
+                    matches = await response.json();
+                }
+            } catch (err) {
+                console.warn("地理庫聯網超時，切換至前台核心樞紐陣列保底");
+            }
+
+            // 2. 智慧保底：如果搜尋的是熱門城市，或是上面聯網沒抓到，自動疊加本地的 19 大黃金樞紐
+            const localMatches = airportDatabase.filter(air => 
+                air.code.toUpperCase().includes(text.toUpperCase()) || 
+                air.city.includes(text) || 
+                air.name.includes(text) ||
+                air.english.toUpperCase().includes(text.toUpperCase())
+            );
+
+            // 合併兩者，並透過代碼（code）進行重複過濾，確保選單純淨不重複
+            const combined = [...matches, ...localMatches];
+            const uniqueMatches = combined.filter((v, i, a) => a.findIndex(t => t.code === v.code) === i);
+
+            if (uniqueMatches.length === 0) {
+                sugBox.classList.add('hidden');
+                return;
+            }
+
+            sugBox.innerHTML = '';
+            uniqueMatches.slice(0, 8).forEach(air => {
+                const div = document.createElement('div');
+                div.className = "px-4 py-2.5 text-xs text-gray-300 hover:bg-starlux-gold hover:text-starlux-darkBg cursor-pointer font-medium border-b border-starlux-gold/5 transition-colors flex justify-between items-center";
+                div.innerHTML = `
+                    <div>
+                        <span class="font-bold text-white">${air.city} (${air.code})</span>
+                        <span class="block text-[10px] opacity-70">${air.name}</span>
+                    </div>
+                    <i class="fa-solid fa-earth-asia text-[10px] opacity-40"></i>
+                `;
+                
+                div.onclick = () => {
+                    input.value = `${air.city} (${air.code}) - ${air.name}`;
+                    codeInput.value = air.code;
+                    
+                    // 🔑 核心保存：把陌生機場在世界盡頭的真實 GPS 精準記錄下來！
+                    if (type === 'orig') activeOriginAirport = air;
+                    if (type === 'dest') activeDestinationAirport = air;
+                    
+                    sugBox.classList.add('hidden');
+                };
+                sugBox.appendChild(div);
+            });
+            sugBox.classList.remove('hidden');
+        }, 350);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (e.target !== input) sugBox.classList.add('hidden');
+    });
+}
+
+    async function searchFlights() {
+            const originCode = document.getElementById('origin-code').value;
+            const destCode = document.getElementById('destination-code').value;
+            const departureDate = document.getElementById('depDate').value;
+
+            if (!originCode || !destCode || !departureDate) {
+                alert("請確認出發地、目的地與日期皆已填寫完整！");
+                return;
+            }
+
+            if (originCode === destCode) {
+                alert("出發地與目的地不能相同喔！");
+               return;
+            }
+
+            // 🔑 智慧保底：確保隨時能抓到點選後的全球座標，防範 undefined 造成的崩潰
+            const origin = activeOriginAirport || { code: 'TPE', city: '台北', lat: 25.0797, lng: 121.2342 };
+            const dest = activeDestinationAirport || { code: 'NRT', city: '東京', lat: 35.7720, lng: 140.3929 };
+
+            // 🌟 體驗優化：在連線讀取時，地圖就先「呼」一聲滑過去，金色大圓航線先亮起來，逼格直接拉滿！
+            updateMapRoute(origin, dest);
+
+            document.getElementById('flight-results').innerHTML = `
+                <div class="text-center py-12 text-starlux-gold/60 tracking-widest animate-pulse">
+                    <i class="fa-solid fa-compass text-3xl mb-3 block animate-spin"></i>
+                    正在橫跨半球檢索即時機票數據庫...
+                </div>
+            `;
+
+            try {
+                // 🔗 建立絕對安全的聯網 URL 傳遞鏈
+                const url = `http://localhost:3000/api/search-flights?origin=${originCode}&destination=${destCode}&departureDate=${departureDate}&fromLat=${origin.lat}&fromLng=${origin.lng}&toLat=${dest.lat}&toLng=${dest.lng}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // 撈取後端清洗後的真實航班（或是防護啟動後的仿真航班）
+                fetchedFlights = data.flights || [];
+                
+                // 渲染右側嚴選航班列表
+                filterAndRenderResults();
+
+            } catch (error) {
+                console.error("無法連接後端:", error);
+                document.getElementById('flight-results').innerHTML = `
+                    <div class="text-center py-12 text-rose-400 border border-rose-500/20 bg-rose-950/20 rounded-xl">
+                        <i class="fa-solid fa-triangle-exclamation text-2xl mb-2"></i>
+                        <p class="text-sm font-semibold">全棧引擎連線中斷</p>
+                        <p class="text-xs text-gray-400 mt-1">請確保後端伺服器 (node server.js) 正常運作中。</p>
+                    </div>
+                `;
+            }
+        }
+
+        function updateMapRoute(origin, dest) {
+            if (originMarker) map.removeLayer(originMarker);
+            if (destMarker) map.removeLayer(destMarker);
+            if (flightLine) map.removeLayer(flightLine);
+
+            const createIcon = (city, type) => L.divIcon({
+                html: `<div class="flex items-center bg-starlux-input text-starlux-gold text-xs font-semibold px-2 py-1 rounded border border-starlux-gold/30 shadow-2xl whitespace-nowrap"><i class="fa-solid ${type === 'orig' ? 'fa-circle-dot text-emerald-400' : 'fa-location-dot text-rose-500'} mr-1.5"></i>${city}</div>`,
+                className: '', iconSize: [85, 25]
+            });
+
+            originMarker = L.marker([origin.lat, origin.lng], { icon: createIcon(origin.city, 'orig') }).addTo(map);
+            destMarker = L.marker([dest.lat, dest.lng], { icon: createIcon(dest.city, 'dest') }).addTo(map);
+
+            // 優雅、纖細、乾淨的實心金線
+            flightLine = L.geodesic([[ [origin.lat, origin.lng], [dest.lat, dest.lng] ]], {
+                weight: 1.5, opacity: 0.8, color: '#D4AF37'
+            }).addTo(map);
+
+            const distance = Math.round(map.distance([origin.lat, origin.lng], [dest.lat, dest.lng]) / 1000);
+            document.getElementById('distance-info').innerText = `DISTANCE: ${distance.toLocaleString()} KM`;
+
+            const group = new L.featureGroup([originMarker, destMarker]);
+            map.fitBounds(group.getBounds().pad(0.4));
+        }
+
+        function filterAndRenderResults() {
+            const container = document.getElementById('flight-results');
+            container.innerHTML = '';
+
+            if (!fetchedFlights || fetchedFlights.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-gray-500 text-sm tracking-wide">查無航班資料。</div>`;
+                return;
+            }
+
+            let displayFlights = [...fetchedFlights];
+
+            // 🔑 關鍵修正一：根據按鈕狀態，執行完全不同的精品與預算排序邏輯
+            if (currentPreference === 'budget') {
+                // 【預算優先】：純粹從價格「最低」開始排序（由小到大）
+                displayFlights.sort((a, b) => a.price - b.price);
+            } else {
+                // 【精品首選】：從價格「最高」開始排序（由大到小），同時讓直飛與星宇優先
+                displayFlights.sort((a, b) => {
+                    // 如果 stops（轉機次數）不同，直飛優先排在前面 (stops 小的優先)
+                    if (a.stops !== b.stops) {
+                        return a.stops - b.stops;
+                    }
+                    // 如果都是直飛，或者轉機次數相同，則讓價格「從高到低」排序（貴的精品飛機在前面）
+                    return b.price - a.price;
+                });
+            }
+
+            document.getElementById('result-count').innerText = `FOUND ${displayFlights.length} FLIGHTS`;
+
+            displayFlights.forEach((f, index) => {
+                // 動態調整標籤文字
+                let badgeHtml = '';
+                if (index === 0 && currentPreference === 'budget') {
+                    badgeHtml = `<span class="bg-amber-500/10 text-starlux-gold text-xs px-2.5 py-0.5 rounded border border-starlux-gold/30 font-medium"><i class="fa-solid fa-wallet mr-1"></i>優選低價</span>`;
+                } else if (index === 0 && currentPreference === 'convenience') {
+                    badgeHtml = `<span class="bg-yellow-500/20 text-yellow-300 text-xs px-2.5 py-0.5 rounded border border-yellow-500/30 font-semibold"><i class="fa-solid fa-crown mr-1"></i>極致奢華</span>`;
+                } else {
+                    badgeHtml = (f.stops === 0) ? `<span class="bg-zinc-800 text-gray-400 text-xs px-2.5 py-0.5 rounded">直飛</span>` : `<span class="bg-zinc-900 text-gray-500 text-xs px-2.5 py-0.5 rounded">轉機 ${f.stops} 次</span>`;
+                }
+
+                const isStarlux = f.code === 'JX';
+                const cardBorder = isStarlux ? 'border-starlux-gold/40 bg-starlux-input/80' : 'border-starlux-gold/10';
+
+                const card = document.createElement('div');
+                card.className = `bg-starlux-input p-4 rounded-xl border ${cardBorder} hover:border-starlux-gold/50 transition-all duration-300 flex flex-col md:flex-row justify-between items-md-center gap-4 shadow-md`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-11 h-11 rounded-lg bg-starlux-panel flex items-center justify-center text-starlux-gold text-lg border border-starlux-gold/20 shadow-inner">
+                            <i class="fa-solid ${f.logo}"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-medium text-white text-sm tracking-wide">${f.airline}</span>
+                                ${badgeHtml}
+                            </div>
+                            <div class="text-xs text-gray-400 font-mono">${f.time} <span class="text-starlux-gold/60">/</span> ${f.durationStr}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 border-zinc-800/60 pt-3 md:pt-0">
+                        <div class="text-left md:text-right">
+                            <div class="text-[10px] text-gray-500 tracking-wider">TWD ${f.flightClass}</div>
+                            <div class="text-lg font-bold text-starlux-gold font-mono">TWD ${f.price.toLocaleString()}</div>
+                        </div>
+                        <button class="bg-starlux-panel hover:bg-starlux-gold text-gray-300 hover:text-starlux-darkBg text-xs font-bold px-4 py-2.5 rounded-lg transition-all border border-starlux-gold/20 hover:border-starlux-gold tracking-widest">SELECT</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function setPreference(pref) {
+            currentPreference = pref;
+            const budgetBtn = document.getElementById('pref-budget');
+            const convBtn = document.getElementById('pref-convenience');
+            
+            // 2. 切換按鈕的 UI 樣式 Vibe
+            if (pref === 'budget') {
+                budgetBtn.className = "py-2 px-3 text-xs font-medium rounded-lg transition-all duration-300 bg-starlux-gold text-starlux-darkBg font-bold shadow-lg";
+                convBtn.className = "py-2 px-3 text-xs font-medium rounded-lg transition-all duration-300 text-gray-400 hover:text-white font-bold";
+            } else {
+                convBtn.className = "py-2 px-3 text-xs font-medium rounded-lg transition-all duration-300 bg-starlux-gold text-starlux-darkBg font-bold shadow-lg";
+                budgetBtn.className = "py-2 px-3 text-xs font-medium rounded-lg transition-all duration-300 text-gray-400 hover:text-white font-bold";
+            }
+            
+            // 🔑 關鍵修正二：切換狀態後，必須立刻「強制重新渲染」，否則畫面不會更新！
+            filterAndRenderResults();
+        }
+
+        window.onload = () => {
+        initMap();
+        // 啟用全新的聯網全球 Autocomplete 大腦
+        setupAutocomplete('origin-input', 'origin-suggestions', 'origin-code', 'orig');
+        setupAutocomplete('destination-input', 'destination-suggestions', 'destination-code', 'dest');
+        
+        // 預設跑一次台北到東京
+        updateMapRoute(activeOriginAirport, activeDestinationAirport);
+    };
+    </script>
+</body>
+</html>
